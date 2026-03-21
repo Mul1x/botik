@@ -261,6 +261,22 @@ def currency_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="◀️ Назад к типу", callback_data="back_to_deal_type")
     )
     return builder.as_markup()
+def currency_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="RUB", callback_data="cur_RUB"),
+        InlineKeyboardButton(text="KZT", callback_data="cur_KZT"),
+        InlineKeyboardButton(text="UAH", callback_data="cur_UAH")
+    )
+    builder.row(
+        InlineKeyboardButton(text="BYN", callback_data="cur_BYN"),
+        InlineKeyboardButton(text="EUR", callback_data="cur_EUR"),
+        InlineKeyboardButton(text="USD", callback_data="cur_USD")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад к типу", callback_data="back_to_deal_type")
+    )
+    return builder.as_markup()
 
 def requisites_edit_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -287,7 +303,7 @@ def deal_type_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="👤 Аккаунт", callback_data="type_account")
     )
     builder.row(
-        InlineKeyboardButton(text=" Другое", callback_data="type_other")
+        InlineKeyboardButton(text="📦 Другое", callback_data="type_other")
     )
     builder.row(
         InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
@@ -318,7 +334,143 @@ def deal_confirm_menu(deal_id: str) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="✅ Оплатить", callback_data=f"pay_{deal_id}", style="success"),
         InlineKeyboardButton(text="❌ Отмена", callback_data="menu", style="danger")
     )
+
+def requisites_edit_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💳 Карта", callback_data="req_card"),
+        InlineKeyboardButton(text="🇰🇿 Kaspi", callback_data="req_kaspi")
+    )
+    builder.row(
+        InlineKeyboardButton(text="💸 QIWI", callback_data="req_qiwi"),
+        InlineKeyboardButton(text="💰 ЮMoney", callback_data="req_yoomoney")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🌐 WebMoney", callback_data="req_webmoney")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
+    )
     return builder.as_markup()
+
+def deal_type_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🎁 Подарок", callback_data="type_gift", style="primary"),
+        InlineKeyboardButton(text="👤 Аккаунт", callback_data="type_account", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="📦 Другое", callback_data="type_other", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
+    )
+    return builder.as_markup()
+
+
+def deal_type_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🎁 Подарок", callback_data="type_gift"),
+        InlineKeyboardButton(text="👤 Аккаунт", callback_data="type_account"),
+    )
+    builder.row(InlineKeyboardButton(text="📦 Другое", callback_data="type_other"))
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад в меню", callback_data="back_to_menu")
+    )
+    return builder.as_markup()
+
+
+def currency_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="RUB", callback_data="cur_RUB", style="primary"),
+        InlineKeyboardButton(text="KZT", callback_data="cur_KZT", style="primary"),
+        InlineKeyboardButton(text="UAH", callback_data="cur_UAH", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="BYN", callback_data="cur_BYN", style="primary"),
+        InlineKeyboardButton(text="EUR", callback_data="cur_EUR", style="primary"),
+        InlineKeyboardButton(text="USD", callback_data="cur_USD", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад к типу", callback_data="back_to_deal_type")
+    )
+    return builder.as_markup()
+
+def requisites_edit_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💳 Карта", callback_data="req_card", style="primary"),
+        InlineKeyboardButton(text="🇰🇿 Kaspi", callback_data="req_kaspi", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="💸 QIWI", callback_data="req_qiwi", style="primary"),
+        InlineKeyboardButton(text="💰 ЮMoney", callback_data="req_yoomoney", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🌐 WebMoney", callback_data="req_webmoney", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
+    )
+    return builder.as_markup()
+
+def scam_base_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🔍 Проверить пользователя", callback_data="check_user", style="primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text="🚨 Сообщить о скамере", callback_data="report_scam", style="danger")
+    )
+    builder.row(
+        InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
+    )
+    return builder.as_markup()
+
+def back_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu"))
+    return builder.as_markup()
+
+def deal_confirm_menu(deal_id: str) -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="✅ Оплатить", callback_data=f"pay_{deal_id}", style="success"),
+        InlineKeyboardButton(text="❌ Отмена", callback_data="menu", style="danger")
+    )
+    return builder.as_markup()
+
+
+def requisites_edit_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="💳 Карта", callback_data="req_card"),
+        InlineKeyboardButton(text="🇰🇿 Kaspi", callback_data="req_kaspi"),
+    )
+    builder.row(
+        InlineKeyboardButton(text="💸 QIWI", callback_data="req_qiwi"),
+        InlineKeyboardButton(text="💰 ЮMoney", callback_data="req_yoomoney"),
+    )
+    builder.row(InlineKeyboardButton(text="🌐 WebMoney", callback_data="req_webmoney"))
+    builder.row(InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu"))
+    return builder.as_markup()
+
+
+def scam_base_menu() -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="🔍 Проверить пользователя", callback_data="check_user"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(text="🚨 Сообщить о скамере", callback_data="report_scam")
+    )
+    builder.row(InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu"))
+    return builder.as_markup()
+
 
 def back_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -993,4 +1145,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    asyncio.run(main())
     asyncio.run(main())
