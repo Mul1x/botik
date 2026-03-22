@@ -26,7 +26,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 load_dotenv()
 
 # Конфигурация
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8699789073:AAGykvNPplzZmyMU4VTJG25p6FgGWxtAOOs")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8674178298:AAEKGs9DZLCdpjmhVukeTEG0iP1y-eJ4aNQ")
 BOT_USERNAME = os.getenv("BOT_USERNAME", "garantmoskowbot")
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "7687750743,8072028362").split(",")]
 
