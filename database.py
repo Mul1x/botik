@@ -45,10 +45,35 @@ class Database:
                 total_deals INTEGER DEFAULT 0
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS admins (
+                user_id INTEGER PRIMARY KEY
+            )
+        """)
         cursor.execute(
             "INSERT OR IGNORE INTO stats (id, total_paid, total_deals) VALUES (1, 0, 0)"
         )
         self.conn.commit()
+
+    def add_admin(self, user_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
+        self.conn.commit()
+
+    def remove_admin(self, user_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
+        self.conn.commit()
+
+    def get_admins(self) -> list:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT user_id FROM admins")
+        return [row[0] for row in cursor.fetchall()]
+
+    def get_all_users(self) -> list:
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT user_id FROM users")
+        return [row[0] for row in cursor.fetchall()]
 
     def get_user(self, user_id: int) -> Optional[tuple]:
         cursor = self.conn.cursor()

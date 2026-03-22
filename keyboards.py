@@ -1,7 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-def main_menu() -> InlineKeyboardMarkup:
+def main_menu(is_super_admin: bool = False) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
         InlineKeyboardButton(text="🟢 Новая сделка", callback_data="new_deal"),
@@ -15,6 +15,17 @@ def main_menu() -> InlineKeyboardMarkup:
         InlineKeyboardButton(text="💰 Вывод", callback_data="withdraw"),
         InlineKeyboardButton(text="⚠️ Скам база", callback_data="scam_base")
     )
+    
+    if is_super_admin:
+        builder.row(
+            InlineKeyboardButton(text="➕ Добавить админа", callback_data="admin_add", style="success"),
+            InlineKeyboardButton(text="➖ Удалить админа", callback_data="admin_remove", style="success")
+        )
+        builder.row(
+            InlineKeyboardButton(text="📝 Рассылка", callback_data="admin_broadcast", style="success"),
+            InlineKeyboardButton(text="👥 Список админов", callback_data="admin_list", style="success")
+        )
+
     builder.row(
         InlineKeyboardButton(text="📢 Канал", url="https://t.me/GiftGuard_channel", style="primary"),
         InlineKeyboardButton(text="🆘 Поддержка", url="https://t.me/GiftGuard_support", style="primary")

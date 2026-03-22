@@ -14,3 +14,8 @@ class ScamStates(StatesGroup):
 
 class WithdrawStates(StatesGroup):
     waiting_amount = State()
+
+class AdminStates(StatesGroup):
+    waiting_admin_id_add = State()
+    waiting_admin_id_remove = State()
+    waiting_broadcast_msg = State()
