@@ -35,7 +35,8 @@ class Database:
                 seller_deals INTEGER DEFAULT 0,
                 buyer_deals INTEGER DEFAULT 0,
                 rating REAL DEFAULT 5.0,
-                requisites TEXT DEFAULT '{}'
+                requisites TEXT DEFAULT '{}',
+                language TEXT DEFAULT 'ru'
             )
         """)
         cursor.execute("""
@@ -69,6 +70,15 @@ class Database:
         cursor = self.conn.cursor()
         cursor.execute("SELECT user_id FROM admins")
         return [row[0] for row in cursor.fetchall()]
+
+    def update_language(self, user_id: int, lang: str):
+        cursor = self.conn.cursor()
+        cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user_id))
+        self.conn.commit()
+
+    def get_user_lang(self, user_id: int) -> str:
+        user = self.get_user(user_id)
+        return user[9] if user and len(user) > 9 else 'ru'
 
     def get_all_users(self) -> list:
         cursor = self.conn.cursor()

@@ -26,7 +26,7 @@ from keyboards import (
     back_menu,
     deal_confirm_menu,
 )
-from utils import format_amount, get_rating_stars
+from utils import format_amount, get_rating_stars, t
 
 # Настройка логирования
 logging.basicConfig(
@@ -42,27 +42,18 @@ async def send_main_menu(target, user_id: int, username: str, first_name: str):
     deals_count = user_data[5] if user_data else 0
     stats = db.get_stats()
     total_paid = stats[1] if stats else 0
+    lang = db.get_user_lang(user_id)
     
     is_super = user_id in SUPER_ADMIN_IDS
-    markup = main_menu(is_super_admin=is_super)
+    markup = main_menu(is_super_admin=is_super, lang=lang)
 
-    text = f"""
-<b>🛡️ GIFT GUARD</b>
-
-Привет, {first_name}!
-<b>Рейтинг:</b> {get_rating_stars(rating)} ({rating:.1f}/5) | <b>Сделок:</b> {deals_count}
-
-Добро пожаловать в гарант-сервис для безопасных сделок!
-<b>GIFT GUARD</b> — сервис, который предоставляет возможность <b>безопасно</b> продавать и покупать любые товары. Мы обеспечиваем <b>защиту обеих сторон</b>, прозрачные условия и <b>быстрые выплаты</b>.
-
----
-
-<b>Статистика:</b>
-- Выплачено: {format_amount(total_paid)} RUB
-- Комиссия сервиса: 1.5%
-
-Нажмите кнопки ниже, чтобы начать!
-"""
+    text = t('main_menu', lang).format(
+        name=first_name,
+        rating=get_rating_stars(rating),
+        val=f"{rating:.1f}",
+        deals=deals_count,
+        total=format_amount(total_paid)
+    )
 
     try:
         photo = FSInputFile("main.png")
@@ -142,15 +133,23 @@ async def cmd_start(message: Message, command: CommandObject):
 
 @dp.callback_query(F.data == "new_deal")
 async def new_deal_handler(callback: CallbackQuery, state: FSMContext):
+    lang = db.get_user_lang(callback.from_user.id)
     await callback.answer()
     await callback.message.answer(
-        "Выберите тип сделки:", reply_markup=deal_type_menu()
+        t('select_type', lang), reply_markup=deal_type_menu(lang=lang)
     )
     try:
         await callback.message.delete()
     except:
         pass
     await state.set_state(DealStates.waiting_deal_type)
+
+@dp.callback_query(F.data.startswith("set_lang_"))
+async def set_lang_handler(callback: CallbackQuery):
+    lang = callback.data.split("_")[2]
+    db.update_language(callback.from_user.id, lang)
+    await callback.answer("Language updated!" if lang == 'en' else "Язык обновлен!")
+    await send_main_menu(callback, callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
 
 @dp.callback_query(F.data == "profile")
 async def profile_handler(callback: CallbackQuery):
@@ -200,7 +199,7 @@ async def deal_type_selected(callback: CallbackQuery, state: FSMContext):
 
     text = f"<b>Введите описание товара</b> (Тип: {deal_type}):"
     if deal_type == "Подарок":
-        text += "\n\n<i>ВНИМАНИЕ! Для типа 'Подарок':\nПосле подтверждения оплаты вы должны передать подарок гаранту: @GiftGuardGarant. После передачи товара средства будут разморожены автоматически.</i>"
+        text += "\n\n<i>ВНИМАНИЕ! Для типа 'Подарок':\nПосле подтверждения оплаты вы должны передать подарок покупателю.</i>"
 
     await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
     try:
@@ -233,8 +232,9 @@ async def get_amount(message: Message, state: FSMContext):
         return
 
     await state.update_data(amount=amount)
+    lang = db.get_user_lang(message.from_user.id)
     await message.answer(
-        f"<b>Выберите валюту для суммы {format_amount(amount)}:</b>",
+        t('select_currency', lang).format(amount=format_amount(amount)),
         parse_mode="HTML",
         reply_markup=currency_menu(),
     )
@@ -248,27 +248,20 @@ async def get_currency(callback: CallbackQuery, state: FSMContext):
     deal_type = data.get("deal_type")
     description = data.get("description")
     amount = data.get("amount")
+    lang = db.get_user_lang(callback.from_user.id)
 
     deal_id = db.create_deal(callback.from_user.id, deal_type, description, amount, currency)
     link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
     amount_str = format_amount(amount)
 
-    text = f"""
-✅ <b>Сделка успешно создана!</b>
-
-<b>Тип:</b> {deal_type}
-<b>Товар:</b> {description}
-<b>Сумма:</b> {amount_str} {currency}
-
-<b>ID сделки:</b> {deal_id}
-
----
-
-<b>Ссылка для покупателя:</b>
-<code>{link}</code>
-
-⚠️ <b>Передавайте товар только после получения уведомления об оплате!</b>
-"""
+    text = t('deal_created', lang).format(
+        type=deal_type,
+        desc=description,
+        amount=amount_str,
+        cur=currency,
+        id=deal_id,
+        link=link
+    )
     await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
     try:
         await callback.message.delete()
@@ -392,21 +385,22 @@ async def pay_deal_handler(callback: CallbackQuery, bot: Bot):
         except:
             pass
 
+        seller_lang = db.get_user_lang(deal["seller_id"])
+        
         await bot.send_message(
             deal["seller_id"],
-            f"💰 <b>Покупатель оплатил сделку #{deal_id}</b>\n\n"
-            f"📦 <b>Тип:</b> {deal['deal_type']}\n"
-            f"📋 <b>Товар:</b> {deal['description']}\n"
-            f"💵 <b>Сумма:</b> +{amount_str} 💸 {deal['currency']}\n\n"
-            f"👤 <b>Покупатель:</b> ID {callback.from_user.id}\n\n"
-            f"<i>✅ Деньги поступили. Можете передавать товар/подарок.</i>\n\n"
-            f"🎁 <b>ИНСТРУКЦИЯ ПО ПЕРЕДАЧЕ ПОДАРКА</b>\n\n"
-            f"1. 📦 Передайте подарок гаранту: @GiftGuardGarant\n"
-            f"2. ✅ Передача подтвержаеся автоматически\n"
-            f"3. 💰 После подтверждения средства будут зачислены на ваш баланс",
+            t('buyer_paid', seller_lang).format(
+                id=deal_id,
+                type=deal['deal_type'],
+                desc=deal['description'],
+                amount=amount_str,
+                cur=deal['currency'],
+                buyer_id=callback.from_user.id
+            ),
             parse_mode="HTML",
             reply_markup=back_menu(),
         )
+
 
 @dp.callback_query(F.data == "menu")
 async def menu_handler(callback: CallbackQuery):
