@@ -6,7 +6,7 @@ def main_menu(is_super_admin: bool = False, lang: str = 'ru') -> InlineKeyboardM
     from utils import t
     
     builder.row(
-        InlineKeyboardButton(text=t('new_deal', lang), callback_data="new_deal"),
+        InlineKeyboardButton(text=t('new_deal', lang), callback_data="new_deal", style="success"),
         InlineKeyboardButton(text=t('my_deals', lang), callback_data="my_deals")
     )
     builder.row(
