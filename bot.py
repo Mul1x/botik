@@ -56,7 +56,7 @@ async def send_main_menu(target, user_id: int, username: str, first_name: str):
     )
 
     try:
-        photo = FSInputFile("main.png")
+        photo = FSInputFile("main.jpg")
         if isinstance(target, Message):
             await target.answer_photo(
                 photo=photo, caption=text, parse_mode="HTML", reply_markup=markup
