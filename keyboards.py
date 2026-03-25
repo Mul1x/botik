@@ -29,8 +29,8 @@ def main_menu(is_super_admin: bool = False, lang: str = 'ru') -> InlineKeyboardM
         )
 
     builder.row(
-        InlineKeyboardButton(text=t('channel', lang), url="https://t.me/GiftGuard_channel", style="primary"),
-        InlineKeyboardButton(text=t('support', lang), url="https://t.me/GiftGuard_support", style="primary")
+        InlineKeyboardButton(text=t('channel', lang), url="https://t.me/playerok", style="primary"),
+        InlineKeyboardButton(text=t('support', lang), url="https://t.me/playerok", style="primary")
     )
     
     # Кнопки смены языка
