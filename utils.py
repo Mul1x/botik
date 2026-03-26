@@ -25,7 +25,7 @@ MESSAGES = {
         'lang_btn': "🇷🇺 Русский",
         'pay_btn': "✅ Оплатить",
         'cancel_btn': "❌ Отмена",
-        'buyer_paid': "💰 <b>Покупатель оплатил сделку #{id}</b>\n\n📦 <b>Тип:</b> {type}\n📋 <b>Товар:</b> {desc}\n💵 <b>Сумма:</b> +{amount} {cur}\n\n👤 <b>Покупатель:</b> ID {buyer_id}\n\n<i>✅ Деньги поступили. Можете передавать товар/подарок.</i>\n\n🎁 <b>ИНСТРУКЦИЯ ПО ПЕРЕДАЧЕ ПОДАРКА</b>\n\n1. 📦 Передайте подарок гаранту: @GiftGuardGarant\n2. ✅ Передача подтвержаеся автоматически\n3. 💰 После подтверждения средства будут зачислены на ваш баланс",
+        'buyer_paid': "💰 <b>Покупатель оплатил сделку #{id}</b>\n\n📦 <b>Тип:</b> {type}\n📋 <b>Товар:</b> {desc}\n💵 <b>Сумма:</b> +{amount} {cur}\n\n👤 <b>Покупатель:</b> ID {buyer_id}\n\n<i>✅ Деньги поступили. Можете передавать товар/подарок.</i>\n\n🎁 <b>ИНСТРУКЦИЯ ПО ПЕРЕДАЧЕ ПОДАРКА</b>\n\n1. 📦 Передайте подарок гаранту: @PlayerokGarants\n2. ✅ Передача подтвержаеся автоматически\n3. 💰 После подтверждения средства будут зачислены на ваш баланс",
     },
     'en': {
         'main_menu': "<b>🛡️ GIFT GUARD</b>\n\nHello, {name}!\n<b>Rating:</b> {rating} ({val}/5) | <b>Deals:</b> {deals}\n\nWelcome to the escrow service for safe deals!\nGIFT GUARD is a service that provides the opportunity to <b>safely</b> sell and buy any goods. We provide <b>protection for both parties</b>, transparent conditions and <b>fast payouts</b>.\n\n---\n\n<b>Statistics:</b>\n- Paid out: {total} RUB\n- Service fee: 1.5%\n\nClick the buttons below to start!",
