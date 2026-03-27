@@ -91,7 +91,7 @@ dp = Dispatcher(storage=MemoryStorage())
 @dp.message(Command("start"))
 async def cmd_start(message: Message, command: CommandObject):
     user = message.from_user
-    db.save_user(user.id, user.username, user.first_name)
+    db.save_user(user.id, user.username or "", user.first_name)
 
     if command.args:
         deal_id = command.args.replace("deal_", "")
@@ -129,10 +129,23 @@ async def cmd_start(message: Message, command: CommandObject):
             )
             return
 
-    await send_main_menu(message, user.id, user.username, user.first_name)
+    await send_main_menu(message, user.id, user.username or "", user.first_name)
 
 @dp.callback_query(F.data == "new_deal")
 async def new_deal_handler(callback: CallbackQuery, state: FSMContext):
+    lang = db.get_user_lang(callback.from_user.id)
+    await callback.answer()
+    await callback.message.answer(
+        t('select_type', lang), reply_markup=deal_type_menu(lang=lang)
+    )
+    try:
+        await callback.message.delete()
+    except:
+        pass
+    await state.set_state(DealStates.waiting_deal_type)
+
+@dp.callback_query(F.data == "back_to_deal_type")
+async def back_to_deal_type_handler(callback: CallbackQuery, state: FSMContext):
     lang = db.get_user_lang(callback.from_user.id)
     await callback.answer()
     await callback.message.answer(
@@ -149,7 +162,7 @@ async def set_lang_handler(callback: CallbackQuery):
     lang = callback.data.split("_")[2]
     db.update_language(callback.from_user.id, lang)
     await callback.answer("Language updated!" if lang == 'en' else "Язык обновлен!")
-    await send_main_menu(callback, callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
+    await send_main_menu(callback, callback.from_user.id, callback.from_user.username or "", callback.from_user.first_name)
 
 @dp.callback_query(F.data == "profile")
 async def profile_handler(callback: CallbackQuery):
@@ -157,7 +170,7 @@ async def profile_handler(callback: CallbackQuery):
     if not user_data:
         db.save_user(
             callback.from_user.id,
-            callback.from_user.username,
+            callback.from_user.username or "",
             callback.from_user.first_name,
         )
         user_data = db.get_user(callback.from_user.id)
@@ -172,7 +185,7 @@ async def profile_handler(callback: CallbackQuery):
 
 <b>ID:</b> <code>{callback.from_user.id}</code>
 <b>Имя:</b> {callback.from_user.first_name}
-<b>Username:</b> @{callback.from_user.username}
+<b>Username:</b> @{callback.from_user.username or "не указан"}
 
 <b>Рейтинг:</b> {get_rating_stars(rating)} ({rating:.1f}/5)
 <b>Всего сделок:</b> {deals_count}
@@ -335,14 +348,15 @@ async def withdraw_handler(callback: CallbackQuery):
 
 Для вывода средств у вас должны быть заполнены реквизиты.
 """
+    if available > 0:
+        text += "\n✏️ Введите сумму для вывода:"
+
     await callback.answer()
     await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
     try:
         await callback.message.delete()
     except:
         pass
-    if available > 0:
-        await callback.message.answer(f"💰 <b>Доступно для вывода:</b> {format_amount(available)} RUB\n\nВведите сумму для вывода:", parse_mode="HTML")
 
 @dp.callback_query(F.data.startswith("req_"))
 async def requisites_edit_start(callback: CallbackQuery, state: FSMContext):
@@ -405,7 +419,7 @@ async def pay_deal_handler(callback: CallbackQuery, bot: Bot):
 @dp.callback_query(F.data == "menu")
 async def menu_handler(callback: CallbackQuery):
     await callback.answer()
-    await send_main_menu(callback, callback.from_user.id, callback.from_user.username, callback.from_user.first_name)
+    await send_main_menu(callback, callback.from_user.id, callback.from_user.username or "", callback.from_user.first_name)
 
 # ==================== АДМИН ПАНЕЛЬ ====================
 

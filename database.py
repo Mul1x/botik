@@ -2,11 +2,13 @@ import sqlite3
 import random
 import string
 import json
+import threading
 from typing import Optional, Dict, Any
 
 class Database:
     def __init__(self, db_path: str = "giftguard.db"):
         self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._lock = threading.Lock()
         self._init_db()
 
     def _init_db(self):
@@ -57,14 +59,16 @@ class Database:
         self.conn.commit()
 
     def add_admin(self, user_id: int):
-        cursor = self.conn.cursor()
-        cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute("INSERT OR IGNORE INTO admins (user_id) VALUES (?)", (user_id,))
+            self.conn.commit()
 
     def remove_admin(self, user_id: int):
-        cursor = self.conn.cursor()
-        cursor.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute("DELETE FROM admins WHERE user_id = ?", (user_id,))
+            self.conn.commit()
 
     def get_admins(self) -> list:
         cursor = self.conn.cursor()
@@ -72,9 +76,10 @@ class Database:
         return [row[0] for row in cursor.fetchall()]
 
     def update_language(self, user_id: int, lang: str):
-        cursor = self.conn.cursor()
-        cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user_id))
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute("UPDATE users SET language = ? WHERE user_id = ?", (lang, user_id))
+            self.conn.commit()
 
     def get_user_lang(self, user_id: int) -> str:
         user = self.get_user(user_id)
@@ -91,45 +96,41 @@ class Database:
         return cursor.fetchone()
 
     def save_user(self, user_id: int, username: str, first_name: str):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "INSERT OR IGNORE INTO users (user_id, username, first_name) VALUES (?, ?, ?)",
-            (user_id, username, first_name),
-        )
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "INSERT OR IGNORE INTO users (user_id, username, first_name) VALUES (?, ?, ?)",
+                (user_id, username, first_name),
+            )
+            self.conn.commit()
 
     def update_requisites(self, user_id: int, req_type: str, value: str):
-        cursor = self.conn.cursor()
-        user = self.get_user(user_id)
-        requisites = {}
-        if user and user[8]:
-            try:
-                requisites = json.loads(user[8])
-            except:
-                pass
-        requisites[req_type] = value
-        cursor.execute(
-            "UPDATE users SET requisites = ? WHERE user_id = ?",
-            (json.dumps(requisites), user_id),
-        )
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            user = self.get_user(user_id)
+            requisites = {}
+            if user and user[8]:
+                try:
+                    requisites = json.loads(user[8])
+                except:
+                    pass
+            requisites[req_type] = value
+            cursor.execute(
+                "UPDATE users SET requisites = ? WHERE user_id = ?",
+                (json.dumps(requisites), user_id),
+            )
+            self.conn.commit()
 
-    def create_deal(
-        self,
-        seller_id: int,
-        deal_type: str,
-        description: str,
-        amount: float,
-        currency: str,
-    ) -> str:
+    def create_deal(self, seller_id: int, deal_type: str, description: str, amount: float, currency: str) -> str:
         deal_id = "".join(random.choices(string.digits, k=6))
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "INSERT INTO deals (deal_id, seller_id, deal_type, description, amount, currency) VALUES (?, ?, ?, ?, ?, ?)",
-            (deal_id, seller_id, deal_type, description, amount, currency),
-        )
-        cursor.execute("UPDATE stats SET total_deals = total_deals + 1 WHERE id = 1")
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "INSERT INTO deals (deal_id, seller_id, deal_type, description, amount, currency) VALUES (?, ?, ?, ?, ?, ?)",
+                (deal_id, seller_id, deal_type, description, amount, currency),
+            )
+            cursor.execute("UPDATE stats SET total_deals = total_deals + 1 WHERE id = 1")
+            self.conn.commit()
         return deal_id
 
     def get_deal(self, deal_id: str) -> Optional[Dict[str, Any]]:
@@ -138,37 +139,32 @@ class Database:
         row = cursor.fetchone()
         if row:
             return {
-                "deal_id": row[0],
-                "seller_id": row[1],
-                "buyer_id": row[2],
-                "deal_type": row[3],
-                "description": row[4],
-                "amount": row[5],
-                "currency": row[6],
-                "status": row[7],
-                "created_at": row[8],
-                "paid_at": row[9],
+                "deal_id": row[0], "seller_id": row[1], "buyer_id": row[2],
+                "deal_type": row[3], "description": row[4], "amount": row[5],
+                "currency": row[6], "status": row[7], "created_at": row[8], "paid_at": row[9],
             }
         return None
 
     def set_buyer(self, deal_id: str, buyer_id: int):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "UPDATE deals SET buyer_id = ? WHERE deal_id = ?", (buyer_id, deal_id)
-        )
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "UPDATE deals SET buyer_id = ? WHERE deal_id = ?", (buyer_id, deal_id)
+            )
+            self.conn.commit()
 
     def mark_paid(self, deal_id: str):
-        cursor = self.conn.cursor()
-        cursor.execute(
-            "UPDATE deals SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE deal_id = ?",
-            (deal_id,),
-        )
-        cursor.execute(
-            "UPDATE stats SET total_paid = total_paid + (SELECT amount FROM deals WHERE deal_id = ?) WHERE id = 1",
-            (deal_id,),
-        )
-        self.conn.commit()
+        with self._lock:
+            cursor = self.conn.cursor()
+            cursor.execute(
+                "UPDATE deals SET status = 'paid', paid_at = CURRENT_TIMESTAMP WHERE deal_id = ?",
+                (deal_id,),
+            )
+            cursor.execute(
+                "UPDATE stats SET total_paid = total_paid + (SELECT amount FROM deals WHERE deal_id = ?) WHERE id = 1",
+                (deal_id,),
+            )
+            self.conn.commit()
 
     def get_user_deals(self, user_id: int) -> list:
         cursor = self.conn.cursor()
