@@ -6,29 +6,67 @@ def get_rating_stars(rating: float) -> str:
 
 MESSAGES = {
     'ru': {
-        'main_menu': "<b>🎁 Playerok NFT</b>\n\nПривет, {name}!\n<b>Рейтинг:</b> {rating} ({val}/5) | <b>Сделок:</b> {deals}\n\nДобро пожаловать в гарант-сервис для безопасных сделок!\n<b>🎁 Playerok NFT</b> — сервис, который предоставляет возможность <b>безопасно</b> продавать и покупать любые товары. Мы обеспечиваем <b>защиту обеих сторон</b>, прозрачные условия и <b>быстрые выплаты</b>.\n\n---\n\n<b>Статистика:</b>\n- Выплачено: 234520 RUB\n- Комиссия сервиса: 1.5%\n\nНажмите кнопки ниже, чтобы начать!",
+        'main_menu': (
+            "🎁 <b>Playerok NFT</b>\n\n"
+            "👋 Привет, <b>{name}</b>!\n"
+            "⭐ <b>Рейтинг:</b> {rating} <code>{val}/5</code>  •  🤝 <b>Сделок:</b> <code>{deals}</code>\n\n"
+            "Добро пожаловать в гарант‑сервис для <b>безопасных сделок</b>!\n\n"
+            "🛡 Мы обеспечиваем <b>защиту обеих сторон</b>, прозрачные условия и <b>быстрые выплаты</b>.\n\n"
+            "💸 <b>Выплачено:</b> <code>{total} RUB</code>\n"
+            "📊 <b>Комиссия сервиса:</b> <code>1.5%</code>"
+        ),
         'new_deal': "🟢 Новая сделка",
         'my_deals': "📋 Мои сделки",
         'profile': "👤 Профиль",
         'requisites': "💳 Реквизиты",
         'withdraw': "💰 Вывод",
-        'scam_base': "⚠️ Скам база",
+        'scam_base': "⚠️ Скам‑база",
         'channel': "📢 Канал",
         'support': "🆘 Поддержка",
-        'select_type': "Выберите тип сделки:",
+        'language': "🌐 Язык",
+        'select_type': "📦 <b>Выберите тип сделки:</b>",
         'gift': "🎁 Подарок",
         'account': "👤 Аккаунт",
         'other': "📦 Другое",
         'back': "◀️ Назад в меню",
-        'select_currency': "<b>Выберите валюту для суммы {amount}:</b>",
-        'deal_created': "✅ <b>Сделка успешно создана!</b>\n\n<b>Тип:</b> {type}\n<b>Товар:</b> {desc}\n<b>Сумма:</b> {amount} {cur}\n\n<b>ID сделки:</b> {id}\n\n---\n\n<b>Ссылка для покупателя:</b>\n<code>{link}</code>\n\n⚠️ <b>Передавайте товар только после получения уведомления об оплате!</b>",
+        'select_currency': "💱 <b>Выберите валюту</b>\n\nСумма: <code>{amount}</code>",
+        'deal_created': (
+            "✅ <b>Сделка успешно создана!</b>\n\n"
+            "📦 <b>Тип:</b> {type}\n"
+            "📋 <b>Товар:</b> {desc}\n"
+            "💵 <b>Сумма:</b> <code>{amount} {cur}</code>\n"
+            "🔑 <b>ID сделки:</b> <code>#{id}</code>\n\n"
+            "🔗 <b>Ссылка для покупателя:</b>\n"
+            "<code>{link}</code>\n\n"
+            "⚠️ <i>Передавайте товар только после получения уведомления об оплате!</i>"
+        ),
         'lang_btn': "🇷🇺 Русский",
         'pay_btn': "✅ Оплатить",
         'cancel_btn': "❌ Отмена",
-        'buyer_paid': "💰 <b>Покупатель оплатил сделку #{id}</b>\n\n📦 <b>Тип:</b> {type}\n📋 <b>Товар:</b> {desc}\n💵 <b>Сумма:</b> +{amount} {cur}\n\n👤 <b>Покупатель:</b> ID {buyer_id}\n\n<i>✅ Деньги поступили. Можете передавать товар/подарок.</i>\n\n🎁 <b>ИНСТРУКЦИЯ ПО ПЕРЕДАЧЕ ПОДАРКА</b>\n\n1. 📦 Передайте подарок гаранту: @PlayerokGarants\n2. ✅ Передача подтвержаеся автоматически\n3. 💰 После подтверждения средства будут зачислены на ваш баланс",
+        'select_lang': "🌐 <b>Выберите язык интерфейса:</b>",
+        'buyer_paid': (
+            "💰 <b>Покупатель оплатил сделку</b> <code>#{id}</code>\n\n"
+            "📦 <b>Тип:</b> {type}\n"
+            "📋 <b>Товар:</b> {desc}\n"
+            "💵 <b>Сумма:</b> <code>+{amount} {cur}</code>\n"
+            "👤 <b>Покупатель:</b> <code>ID {buyer_id}</code>\n\n"
+            "<i>✅ Деньги поступили — можете передавать товар или подарок.</i>\n\n"
+            "🎁 <b>Инструкция по передаче подарка:</b>\n\n"
+            "1️⃣ Передайте подарок гаранту: @PlayerokGarants\n"
+            "2️⃣ Передача подтверждается автоматически\n"
+            "3️⃣ После подтверждения средства зачислятся на баланс"
+        ),
     },
     'en': {
-        'main_menu': "<b>🛡️ GIFT GUARD</b>\n\nHello, {name}!\n<b>Rating:</b> {rating} ({val}/5) | <b>Deals:</b> {deals}\n\nWelcome to the escrow service for safe deals!\nGIFT GUARD is a service that provides the opportunity to <b>safely</b> sell and buy any goods. We provide <b>protection for both parties</b>, transparent conditions and <b>fast payouts</b>.\n\n---\n\n<b>Statistics:</b>\n- Paid out: {total} RUB\n- Service fee: 1.5%\n\nClick the buttons below to start!",
+        'main_menu': (
+            "🎁 <b>Playerok NFT</b>\n\n"
+            "👋 Hello, <b>{name}</b>!\n"
+            "⭐ <b>Rating:</b> {rating} <code>{val}/5</code>  •  🤝 <b>Deals:</b> <code>{deals}</code>\n\n"
+            "Welcome to the escrow service for <b>safe deals</b>!\n\n"
+            "🛡 We provide <b>protection for both parties</b>, transparent terms and <b>fast payouts</b>.\n\n"
+            "💸 <b>Paid out:</b> <code>{total} RUB</code>\n"
+            "📊 <b>Service fee:</b> <code>1.5%</code>"
+        ),
         'new_deal': "🟢 New Deal",
         'my_deals': "📋 My Deals",
         'profile': "👤 Profile",
@@ -37,17 +75,39 @@ MESSAGES = {
         'scam_base': "⚠️ Scam Base",
         'channel': "📢 Channel",
         'support': "🆘 Support",
-        'select_type': "Select deal type:",
+        'language': "🌐 Language",
+        'select_type': "📦 <b>Select deal type:</b>",
         'gift': "🎁 Gift",
         'account': "👤 Account",
         'other': "📦 Other",
         'back': "◀️ Back to menu",
-        'select_currency': "<b>Select currency for amount {amount}:</b>",
-        'deal_created': "✅ <b>Deal created successfully!</b>\n\n<b>Type:</b> {type}\n<b>Item:</b> {desc}\n<b>Amount:</b> {amount} {cur}\n\n<b>Deal ID:</b> {id}\n\n---\n\n<b>Link for buyer:</b>\n<code>{link}</code>\n\n⚠️ <b>Transfer the item only after receiving payment notification!</b>",
+        'select_currency': "💱 <b>Select currency</b>\n\nAmount: <code>{amount}</code>",
+        'deal_created': (
+            "✅ <b>Deal created successfully!</b>\n\n"
+            "📦 <b>Type:</b> {type}\n"
+            "📋 <b>Item:</b> {desc}\n"
+            "💵 <b>Amount:</b> <code>{amount} {cur}</code>\n"
+            "🔑 <b>Deal ID:</b> <code>#{id}</code>\n\n"
+            "🔗 <b>Link for buyer:</b>\n"
+            "<code>{link}</code>\n\n"
+            "⚠️ <i>Transfer the item only after receiving payment notification!</i>"
+        ),
         'lang_btn': "🇺🇸 English",
         'pay_btn': "✅ Pay",
         'cancel_btn': "❌ Cancel",
-        'buyer_paid': "💰 <b>Buyer paid for deal #{id}</b>\n\n📦 <b>Type:</b> {type}\n📋 <b>Item:</b> {desc}\n💵 <b>Amount:</b> +{amount} {cur}\n\n👤 <b>Buyer:</b> ID {buyer_id}\n\n<i>✅ Money received. You can transfer the item/gift.</i>\n\n🎁 <b>GIFT TRANSFER INSTRUCTIONS</b>\n\n1. 📦 Transfer the gift to the guarantor: @GiftGuardGarant\n2. ✅ Transfer is confirmed automatically\n3. 💰 After confirmation, funds will be credited to your balance",
+        'select_lang': "🌐 <b>Select interface language:</b>",
+        'buyer_paid': (
+            "💰 <b>Buyer paid for deal</b> <code>#{id}</code>\n\n"
+            "📦 <b>Type:</b> {type}\n"
+            "📋 <b>Item:</b> {desc}\n"
+            "💵 <b>Amount:</b> <code>+{amount} {cur}</code>\n"
+            "👤 <b>Buyer:</b> <code>ID {buyer_id}</code>\n\n"
+            "<i>✅ Money received — you can transfer the item or gift.</i>\n\n"
+            "🎁 <b>Gift transfer instructions:</b>\n\n"
+            "1️⃣ Transfer the gift to the guarantor: @PlayerokGarants\n"
+            "2️⃣ Transfer is confirmed automatically\n"
+            "3️⃣ After confirmation, funds will be credited to your balance"
+        ),
     }
 }
 

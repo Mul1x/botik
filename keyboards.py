@@ -4,7 +4,8 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 def main_menu(is_super_admin: bool = False, lang: str = 'ru') -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     from utils import t
-    
+
+    # Главное действие — акцентная кнопка
     builder.row(
         InlineKeyboardButton(text=t('new_deal', lang), callback_data="new_deal", style="success"),
         InlineKeyboardButton(text=t('my_deals', lang), callback_data="my_deals")
@@ -17,29 +18,43 @@ def main_menu(is_super_admin: bool = False, lang: str = 'ru') -> InlineKeyboardM
         InlineKeyboardButton(text=t('withdraw', lang), callback_data="withdraw"),
         InlineKeyboardButton(text=t('scam_base', lang), callback_data="scam_base")
     )
-    
+
     if is_super_admin:
         builder.row(
-            InlineKeyboardButton(text="➕ Добавить админа", callback_data="admin_add", style="success"),
-            InlineKeyboardButton(text="➖ Удалить админа", callback_data="admin_remove", style="success")
+            InlineKeyboardButton(text="➕ Добавить админа", callback_data="admin_add"),
+            InlineKeyboardButton(text="➖ Удалить админа", callback_data="admin_remove")
         )
         builder.row(
-            InlineKeyboardButton(text="📝 Рассылка", callback_data="admin_broadcast", style="success"),
-            InlineKeyboardButton(text="👥 Список админов", callback_data="admin_list", style="success")
+            InlineKeyboardButton(text="📝 Рассылка", callback_data="admin_broadcast"),
+            InlineKeyboardButton(text="👥 Список админов", callback_data="admin_list")
         )
 
+    # Канал и поддержка — акцентные (внешние ссылки)
     builder.row(
         InlineKeyboardButton(text=t('channel', lang), url="https://t.me/playerok", style="primary"),
         InlineKeyboardButton(text=t('support', lang), url="https://t.me/playerok", style="primary")
     )
-    
-    # Кнопки смены языка
+
+    # Язык — отдельная кнопка, ведёт в подменю
     builder.row(
-        InlineKeyboardButton(text="🇷🇺 RU", callback_data="set_lang_ru", style="success" if lang == 'ru' else "default"),
-        InlineKeyboardButton(text="🇺🇸 EN", callback_data="set_lang_en", style="success" if lang == 'en' else "default")
+        InlineKeyboardButton(text=t('language', lang), callback_data="lang_menu")
     )
-    
+
     return builder.as_markup()
+
+
+def lang_menu(lang: str = 'ru') -> InlineKeyboardMarkup:
+    builder = InlineKeyboardBuilder()
+    from utils import t
+    builder.row(
+        InlineKeyboardButton(text="🇷🇺 Русский", callback_data="set_lang_ru", style="success" if lang == 'ru' else "primary"),
+        InlineKeyboardButton(text="🇺🇸 English", callback_data="set_lang_en", style="success" if lang == 'en' else "primary")
+    )
+    builder.row(
+        InlineKeyboardButton(text=t('back', lang), callback_data="menu")
+    )
+    return builder.as_markup()
+
 
 def deal_type_menu(lang: str = 'ru') -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -55,6 +70,7 @@ def deal_type_menu(lang: str = 'ru') -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=t('back', lang), callback_data="menu")
     )
     return builder.as_markup()
+
 
 def currency_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
@@ -76,6 +92,7 @@ def currency_menu() -> InlineKeyboardMarkup:
     )
     return builder.as_markup()
 
+
 def requisites_edit_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -94,6 +111,7 @@ def requisites_edit_menu() -> InlineKeyboardMarkup:
     )
     return builder.as_markup()
 
+
 def scam_base_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(
@@ -107,10 +125,12 @@ def scam_base_menu() -> InlineKeyboardMarkup:
     )
     return builder.as_markup()
 
+
 def back_menu() -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="◀️ Назад в меню", callback_data="menu"))
     return builder.as_markup()
+
 
 def deal_confirm_menu(deal_id: str) -> InlineKeyboardMarkup:
     builder = InlineKeyboardBuilder()

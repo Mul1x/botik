@@ -19,6 +19,7 @@ from database import db
 from states import DealStates, RequisitesStates, ScamStates, WithdrawStates, AdminStates
 from keyboards import (
     main_menu,
+    lang_menu,
     deal_type_menu,
     currency_menu,
     requisites_edit_menu,
@@ -56,7 +57,7 @@ async def send_main_menu(target, user_id: int, username: str, first_name: str):
     )
 
     try:
-        photo = FSInputFile("main.jpg")
+        photo = FSInputFile("main.png")
         if isinstance(target, Message):
             await target.answer_photo(
                 photo=photo, caption=text, parse_mode="HTML", reply_markup=markup
@@ -157,12 +158,30 @@ async def back_to_deal_type_handler(callback: CallbackQuery, state: FSMContext):
         pass
     await state.set_state(DealStates.waiting_deal_type)
 
+@dp.callback_query(F.data == "lang_menu")
+async def lang_menu_handler(callback: CallbackQuery):
+    lang = db.get_user_lang(callback.from_user.id)
+    await callback.answer()
+    await callback.message.answer(
+        t('select_lang', lang), parse_mode="HTML", reply_markup=lang_menu(lang=lang)
+    )
+    try:
+        await callback.message.delete()
+    except:
+        pass
+
 @dp.callback_query(F.data.startswith("set_lang_"))
 async def set_lang_handler(callback: CallbackQuery):
     lang = callback.data.split("_")[2]
     db.update_language(callback.from_user.id, lang)
-    await callback.answer("Language updated!" if lang == 'en' else "Язык обновлен!")
-    await send_main_menu(callback, callback.from_user.id, callback.from_user.username or "", callback.from_user.first_name)
+    await callback.answer("Language updated!" if lang == 'en' else "Язык обновлён!")
+    await callback.message.answer(
+        t('select_lang', lang), parse_mode="HTML", reply_markup=lang_menu(lang=lang)
+    )
+    try:
+        await callback.message.delete()
+    except:
+        pass
 
 @dp.callback_query(F.data == "profile")
 async def profile_handler(callback: CallbackQuery):
