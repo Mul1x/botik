@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN", "8616737090:AAHJpZXsAqpiZKqHv2fKfuJ7ALALp-iSRjo")
+TOKEN = os.getenv("BOT_TOKEN", "8799843968:AAHmwgNjBYQJJZAI4MVlpohE4wHat3X_6zQ")
 MAIN_ADMIN_ID = int(os.getenv("MAIN_ADMIN_ID", "8717189451"))  # ID главного админа
 
 # Путь к видео
